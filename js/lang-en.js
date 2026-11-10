@@ -1,5 +1,7 @@
 /* English interface text. Keys are shared with lang-bn.js. */
 I18N.strings.en = {
+  "farm.division": "Division",
+  "farm.district": "District",
   "nav.farm": "My Farm",
   "nav.rot": "Rotation Strategy ▾",
   "nav.generate": "Generate Rotation Strategy",

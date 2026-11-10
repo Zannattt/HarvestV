@@ -3,7 +3,85 @@
 /* Crop catalog cache. Filled from GET /api/crops by getCropData(). There is no local copy of the catalog:
    the SQLite database behind the API is the only source of crop data. */
 let cropData = [];
-const locations = {Rangpur:[25.75,89.25],Rajshahi:[24.37,88.6],Mymensingh:[24.75,90.4],Dhaka:[23.81,90.41],Khulna:[22.82,89.55]};
+// District-town coordinates [latitude, longitude], not district boundaries.
+// Source: https://github.com/ifahimreza/bangladesh-geojson/blob/master/src/data/bd-districts.json
+const locations = {
+  "Bagerhat": [22.651568, 89.785938],
+  "Bandarban": [22.1953275, 92.2183773],
+  "Barguna": [22.0953, 90.1121],
+  "Barishal": [22.701, 90.3535],
+  "Bhola": [22.685923, 90.648179],
+  "Bogura": [24.8465228, 89.377755],
+  "Brahmanbaria": [23.9570904, 91.1119286],
+  "Chandpur": [23.2332585, 90.6712912],
+  "Chapainawabganj": [24.5965034, 88.2775122],
+  "Chattogram": [22.335109, 91.834073],
+  "Chuadanga": [23.6401961, 88.841841],
+  "Cox's Bazar": [21.4272, 92.0058],
+  "Cumilla": [23.4682747, 91.1788135],
+  "Dhaka": [23.7115253, 90.4111451],
+  "Dinajpur": [25.6217061, 88.6354504],
+  "Faridpur": [23.6070822, 89.8429406],
+  "Feni": [23.0159, 91.3976],
+  "Gaibandha": [25.328751, 89.528088],
+  "Gazipur": [24.0022858, 90.4264283],
+  "Gopalganj": [23.0050857, 89.8266059],
+  "Habiganj": [24.374945, 91.41553],
+  "Jamalpur": [24.937533, 89.937775],
+  "Jashore": [23.16643, 89.2081126],
+  "Jhalokati": [22.6406, 90.1987],
+  "Jhenaidah": [23.5448176, 89.1539213],
+  "Joypurhat": [25.0968, 89.0227],
+  "Khagrachhari": [23.119285, 91.984663],
+  "Khulna": [22.815774, 89.568679],
+  "Kishoreganj": [24.444937, 90.776575],
+  "Kurigram": [25.805445, 89.636174],
+  "Kushtia": [23.901258, 89.120482],
+  "Lakshmipur": [22.942477, 90.841184],
+  "Lalmonirhat": [25.9923, 89.2847],
+  "Madaripur": [23.164102, 90.1896805],
+  "Magura": [23.487337, 89.419956],
+  "Manikganj": [23.8644, 90.0047],
+  "Meherpur": [23.762213, 88.631821],
+  "Moulvibazar": [24.482934, 91.777417],
+  "Munshiganj": [23.5422, 90.5305],
+  "Mymensingh": [24.7471, 90.4203],
+  "Naogaon": [24.7936, 88.9318],
+  "Narail": [23.172534, 89.512672],
+  "Narayanganj": [23.63366, 90.496482],
+  "Narsingdi": [23.932233, 90.71541],
+  "Natore": [24.420556, 89.000282],
+  "Netrokona": [24.870955, 90.727887],
+  "Nilphamari": [25.931794, 88.856006],
+  "Noakhali": [22.869563, 91.099398],
+  "Pabna": [23.998524, 89.233645],
+  "Panchagarh": [26.3411, 88.5541606],
+  "Patuakhali": [22.3596316, 90.3298712],
+  "Pirojpur": [22.5841, 89.972],
+  "Rajbari": [23.7574305, 89.6444665],
+  "Rajshahi": [24.3745, 88.6042],
+  "Rangamati": [22.7324, 92.2985],
+  "Rangpur": [25.7558096, 89.244462],
+  "Satkhira": [22.7185, 89.0705],
+  "Shariatpur": [23.2423, 90.4348],
+  "Sherpur": [25.0204933, 90.0152966],
+  "Sirajganj": [24.4533978, 89.7006815],
+  "Sunamganj": [25.0658042, 91.3950115],
+  "Sylhet": [24.8897956, 91.8697894],
+  "Tangail": [24.2513, 89.9167],
+  "Thakurgaon": [26.0336945, 88.4616834]
+};
+// Administrative grouping: https://bangladesh.gov.bd/views/district-list
+const districtsByDivision = {
+  "Barishal": ["Barguna", "Barishal", "Bhola", "Jhalokati", "Patuakhali", "Pirojpur"],
+  "Chattogram": ["Bandarban", "Brahmanbaria", "Chandpur", "Chattogram", "Cox's Bazar", "Cumilla", "Feni", "Khagrachhari", "Lakshmipur", "Noakhali", "Rangamati"],
+  "Dhaka": ["Dhaka", "Faridpur", "Gazipur", "Gopalganj", "Kishoreganj", "Madaripur", "Manikganj", "Munshiganj", "Narayanganj", "Narsingdi", "Rajbari", "Shariatpur", "Tangail"],
+  "Khulna": ["Bagerhat", "Chuadanga", "Jashore", "Jhenaidah", "Khulna", "Kushtia", "Magura", "Meherpur", "Narail", "Satkhira"],
+  "Mymensingh": ["Jamalpur", "Mymensingh", "Netrokona", "Sherpur"],
+  "Rajshahi": ["Bogura", "Chapainawabganj", "Joypurhat", "Naogaon", "Natore", "Pabna", "Rajshahi", "Sirajganj"],
+  "Rangpur": ["Dinajpur", "Gaibandha", "Kurigram", "Lalmonirhat", "Nilphamari", "Panchagarh", "Rangpur", "Thakurgaon"],
+  "Sylhet": ["Habiganj", "Moulvibazar", "Sunamganj", "Sylhet"]
+};
 const defaultFarm = {location:'Rangpur, Bangladesh',size:'1.0',crop:'Rice',previous:'Rice',irrigation:'Limited',priority:'Water efficiency',soil:'Clay loam'};
 /* DEV ONLY: demo environmental data in the same shape as the API response. Used only when
    HARVESTV_CONFIG.useMockEnvironment is true and always labelled as demo data, never as NASA. */

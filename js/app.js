@@ -74,9 +74,25 @@ function displayEnvironmentalConditions(e) {
   <details><summary>${t('env.details')}</summary><p>${t('env.detailsText', { source: esc(tv(e.source)), date: esc(e.dataDate) })}</p></details>`;
 }
 const fieldSel = (id, label, opts, val) => `<div><label for="${id}">${label}</label><select id="${id}" name="${id}">${opts.map(o => `<option value="${esc(o)}" ${o === val ? 'selected' : ''}>${esc(tv(o))}</option>`).join('')}</select></div>`;
+function districtOptions(division, selectedDistrict = '') {
+  return districtsByDivision[division].map(d => `<option value="${esc(d + ', Bangladesh')}" ${d === selectedDistrict ? 'selected' : ''}>${esc(tv(d))}</option>`).join('');
+}
+function locationFields(label, districtId) {
+  const district = String(label || '').replace(/^Near /, '').split(',')[0];
+  const division = Object.keys(districtsByDivision).find(d => districtsByDivision[d].includes(district)) || 'Dhaka';
+  return `<div><label for="${districtId}Division">${t('farm.division')}</label><select id="${districtId}Division" data-district-target="${districtId}">${Object.keys(districtsByDivision).map(d => `<option value="${d}" ${d === division ? 'selected' : ''}>${esc(tv(d))}</option>`).join('')}</select></div>
+    <div><label for="${districtId}">${t('farm.district')}</label><select id="${districtId}" name="location">${districtOptions(division, district)}</select></div>`;
+}
+// Delegation also handles forms inserted after navigation or a language change.
+document.addEventListener('change', e => {
+  const targetId = e.target.dataset.districtTarget;
+  if (!targetId || !districtsByDivision[e.target.value]) return;
+  const districtSelect = document.getElementById(targetId);
+  if (districtSelect) districtSelect.innerHTML = districtOptions(e.target.value);
+});
 function farmFormFields(f, { skipPrevious = false } = {}) {
   return `<div class="form">
-    <div><label for="location">${t('farm.location')}</label><select id="location" name="location">${Object.keys(locations).map(l => `<option value="${l}, Bangladesh" ${f.location.startsWith(l) ? 'selected' : ''}>${locName(l + ', Bangladesh')}</option>`).join('')}</select></div>
+    ${locationFields(f.location, 'location')}
     <div><label for="size">${t('ff.size')}</label><input type="number" id="size" name="size" min="0.1" step="0.1" value="${f.size}"></div>
     ${fieldSel('soil', t('ff.soil'), ['Clay loam', 'Loam', 'Sandy loam', 'Alluvial', 'Clay'], f.soil)}
     ${skipPrevious ? '' : fieldSel('previous', t('ff.prevCur'), cropData.map(c => c.name), f.previous)}
@@ -239,7 +255,7 @@ const views = {
     app.innerHTML = `<h1 class="title">${t('nav.farm')}</h1><p class="sub">${t('farm.sub')}</p>
       <div class="card sky row space"><div><h3>📍 ${t('farm.location')}</h3><div id="locText" style="font-size:1.3rem;font-weight:600">${esc(locName(f.location))}</div><small id="coords"></small></div>
       <div class="row"><button class="btn" id="geo">${t('farm.useGeo')}</button><button class="btn ghost" id="chg">${t('farm.change')}</button></div></div>
-      <div id="manual" style="display:none;margin-top:12px" class="card"><label for="manLoc">${t('farm.select')}</label><select id="manLoc">${Object.keys(locations).map(l => `<option value="${l}, Bangladesh">${esc(locName(l + ', Bangladesh'))}</option>`).join('')}</select><p><button class="btn" id="manSave">${t('farm.saveLoc')}</button></p></div>
+      <div id="manual" style="display:none;margin-top:12px" class="card"><div class="form">${locationFields(f.location, 'manLoc')}</div><p><button class="btn" id="manSave">${t('farm.saveLoc')}</button></p></div>
       <h2>${t('farm.conditions')}</h2><div id="envBox"></div>
       <h2>${t('farm.profile')}</h2><div id="profile"></div>`;
     const manual = document.getElementById('manual'), coordsEl = document.getElementById('coords');
@@ -270,7 +286,10 @@ const views = {
       document.getElementById('ef').onsubmit = async e => { e.preventDefault(); Object.assign(f, Object.fromEntries(new FormData(e.target))); await saveFarmData(f); renderProfile(f); };
     }
     renderProfile(f);
-    document.getElementById('chg').onclick = () => manual.style.display = 'block';
+    document.getElementById('chg').onclick = () => {
+      manual.querySelector('.form').innerHTML = locationFields(f.location, 'manLoc');
+      manual.style.display = 'block';
+    };
     document.getElementById('manSave').onclick = () => {
       const label = document.getElementById('manLoc').value, c = locations[label.split(',')[0]];
       setLoc(label, '', { latitude: c[0], longitude: c[1] });
@@ -278,7 +297,7 @@ const views = {
     document.getElementById('geo').onclick = () => {
       if (!navigator.geolocation) { coordsEl.textContent = t('farm.noGeo'); manual.style.display = 'block'; return; }
       navigator.geolocation.getCurrentPosition(pos => {
-        const { latitude: la, longitude: lo } = pos.coords; // Mock reverse geocoding: nearest demo city (label only)
+        const { latitude: la, longitude: lo } = pos.coords; // Nearest district town (label only; actual GPS coordinates are retained)
         const near = Object.entries(locations).sort((a, b) => Math.hypot(a[1][0] - la, a[1][1] - lo) - Math.hypot(b[1][0] - la, b[1][1] - lo))[0][0];
         setLoc(`Near ${near}, Bangladesh`, t('farm.coords', { la: la.toFixed(3), lo: lo.toFixed(3) }), { latitude: la, longitude: lo });
       }, () => { coordsEl.textContent = t('farm.denied'); manual.style.display = 'block'; }, { timeout: 10000 });
