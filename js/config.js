@@ -1,8 +1,9 @@
-/* Single place to configure the backend. For production, set apiBaseUrl to your Render URL
-   (e.g. 'https://harvestv-api.onrender.com'). */
+/* Production API requests stay on the website domain; Vercel forwards them to Render.
+   Local development uses the FastAPI server on port 8000. */
 const HARVESTV_CONFIG = {
-  //apiBaseUrl: 'https://harvestv-api.onrender.com',
-  apiBaseUrl: 'http://127.0.0.1:8000',
+  apiBaseUrl: typeof location !== 'undefined' &&
+    ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
+    ? 'http://127.0.0.1:8000' : '',
   // Development only: serve clearly-labelled demo environmental data instead of calling the backend.
   useMockEnvironment: false
 };
